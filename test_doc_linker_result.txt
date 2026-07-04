@@ -1,0 +1,16 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- c:\Users\manna\OneDrive\DOCUME~1\ANTI-G~2\DOCSEN~1\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: c:\Users\manna\OneDrive\DOCUME~1\ANTI-G~2\DOCSEN~1
+plugins: anyio-4.14.1
+collecting ... Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|##########| 103/103 [00:00<00:00, 2435.54it/s]
+collected 1 item
+
+tests/test_doc_linker.py::test_finds_divide_docs README.md | divide(a, b, safe=True) | exact: True
+README.md | add(a, b) | exact: False
+README.md | API | exact: False
+README.md | Testbed | exact: False
+PASSED
+
+============================= 1 passed in 56.92s ==============================
