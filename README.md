@@ -95,4 +95,4 @@ docsentry/
 
 ## License
 
-MIT — do whatever you like; attribution appreciated.
+Muhammad Anas (MM) --- For any assistance or complaints, Contact me at f240576@cfd.nu.edu.pk
