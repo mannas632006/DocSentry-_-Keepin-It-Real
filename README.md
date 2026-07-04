@@ -93,6 +93,110 @@ docsentry/
 - **Python + Markdown** for now; other languages/doc formats are a documented extension point.
 - Requires a local [Ollama](https://ollama.com) install and a small model (`orca-mini`).
 
+## STEP-BY-STEP GUIDE TO RUN DocSentry
 
+### 0. Install the prerequisites
+
+| Tool | Version | Why |
+|------|---------|-----|
+| Python | 3.11+ | the agent |
+| Node.js | 20+ | the dashboard only |
+| Ollama | latest | the local LLM brain — ollama.com |
+| Git | any | cloning + the agent's GitHub actions |
+
+Plus a GitHub account and a fine-grained Personal Access Token scoped to the repo they want to watch (Contents / Issues / Pull requests / Webhooks → read & write).
+
+---
+
+### 1. Get the code + a repo to watch
+
+DocSentry watches another repo, and the path is relative, so the layout matters:
+
+```text
+some-folder/
+├── docsentry/           ← this project (cloned)
+└── docsentry-testbed/   ← the repo it watches (SIBLING, not inside)
+```
+
+```bash
+git clone https://github.com/mannas632006/docsentry.git
+git clone https://github.com/<their-user>/<repo-to-watch>.git   # the sibling
+```
+
+---
+
+### 2. Python environment
+
+```bash
+cd docsentry
+python -m venv .venv
+.venv\Scripts\activate            # Windows PowerShell
+pip install -r requirements.txt   # ~2GB (pulls PyTorch); be patient
+```
+
+Windows gotcha: if activation errors with **"running scripts is disabled,"** run once:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+---
+
+### 3. The local LLM
+
+```bash
+ollama pull orca-mini
+```
+
+Make sure Ollama is running (it serves on localhost:11434). It needs ~2 GB free RAM to load the model.
+
+---
+
+### 4. Configuration
+
+```bash
+cp .env.example .env      # copy, then edit .env
+```
+
+Fill in: `github_token`, `target_repo` (e.g. `their-user/docsentry-testbed`), and confirm `local_repo_path=../docsentry-testbed` points at the sibling.
+
+---
+
+### 5. Run the agent (the proof-of-life)
+
+Run from inside `docsentry/` with the parent on the path — this is the one non-obvious part:
+
+```powershell
+# Windows PowerShell
+$env:PYTHONPATH = ".."
+.venv\Scripts\python -m docsentry.cli init        # index the watched repo's docs
+.venv\Scripts\python -m docsentry.pipeline        # run the full agent on the latest commit
+```
+
+```bash
+# macOS/Linux
+PYTHONPATH=.. python -m docsentry.pipeline
+```
+
+If the watched repo has a doc that a recent commit made false, this opens a real issue/PR on it. That's the whole thing working.
+
+---
+
+### 6. (Optional) Live server + dashboard
+
+```powershell
+# Terminal 1 — API + webhook receiver
+$env:PYTHONPATH = ".."
+.venv\Scripts\python -m uvicorn docsentry.main:app --port 8000
+```
+
+```bash
+# Terminal 2 — dashboard
+cd dashboard
+npm install                 # if npm blocks esbuild's script: npm approve-scripts esbuild
+npm run dev                 # http://localhost:5173
+```
+
+To make pushes trigger it automatically: expose the server with `ngrok http 8000` and add a GitHub webhook → `<tunnel-url>/webhook/github` (content type `application/json`, secret = your `WEBHOOK_SECRET`, "just the push event").
 
 ## Made By: Muhammad Anas (MM) --- For any assistance or complaints, Contact me at f240576@cfd.nu.edu.pk
