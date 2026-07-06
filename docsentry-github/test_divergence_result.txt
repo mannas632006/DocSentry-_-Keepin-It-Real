@@ -1,0 +1,134 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- c:\Users\manna\OneDrive\DOCUME~1\ANTI-G~2\DOCSEN~1\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: c:\Users\manna\OneDrive\DOCUME~1\ANTI-G~2\DOCSEN~1
+plugins: anyio-4.14.1
+collecting ... Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|##########| 103/103 [00:00<00:00, 2464.18it/s]
+collected 1 item
+
+tests/test_divergence.py::test_catches_the_lie FAILED
+
+================================== FAILURES ===================================
+____________________________ test_catches_the_lie _____________________________
+
+    def test_catches_the_lie():
+        reindex(settings.local_repo_path)
+        change = {"file": "calculator.py", "kind": "params_changed",
+                  "name": "divide",
+                  "detail": "`divide` signature changed: (a, b, safe=True) \u2192 (a, b, safe=False)"}
+        top_doc = link_change_to_docs(change)[0]
+>       verdict = check_divergence(change, top_doc)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_divergence.py:13: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\docsentry\agents\divergence.py:47: in check_divergence
+    resp = _client.messages.create(
+.venv\Lib\site-packages\anthropic\_utils\_utils.py:294: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\anthropic\resources\messages\messages.py:1050: in create
+    return self._post(
+.venv\Lib\site-packages\anthropic\_base_client.py:1536: in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <anthropic.Anthropic object at 0x000001EDF01C8450>
+cast_to = <class 'anthropic.types.message.Message'>
+options = FinalRequestOptions(method='post', url='/v1/messages', params={}, headers={'anthropic-user-profile-id': <anthropic.Omi...f the verdict.\n- suggested_fix must preserve the doc\'s tone and format (markdown stays markdown).'}, extra_json=None)
+stream = False
+stream_cls = anthropic.Stream[typing.Annotated[typing.Union[anthropic.types.raw_message_start_event.RawMessageStartEvent, anthropic...vent.RawContentBlockStopEvent], PropertyInfo(alias='None', format=None, format_template='None', discriminator='type')]]
+
+    def request(
+        self,
+        cast_to: Type[ResponseT],
+        options: FinalRequestOptions,
+        *,
+        stream: bool = False,
+        stream_cls: type[_StreamT] | None = None,
+    ) -> ResponseT | _StreamT:
+        cast_to = self._maybe_override_cast_to(cast_to, options)
+    
+        # create a copy of the options we were given so that if the
+        # options are mutated later & we then retry, the retries are
+        # given the original options
+        input_options = model_copy(options)
+        if input_options.idempotency_key is None and input_options.method.lower() != "get":
+            # ensure the idempotency key is reused between requests
+            input_options.idempotency_key = self._idempotency_key()
+    
+        chain = self._middleware_chain
+        max_retries = input_options.get_max_retries(self.max_retries)
+    
+        for retries_taken in range(max_retries + 1):
+            remaining_retries = max_retries - retries_taken
+    
+            try:
+                if chain is None:
+                    response, prepared = self._attempt_request(
+                        model_copy(input_options), stream=stream, retries_taken=retries_taken
+                    )
+                    if response.is_success:
+                        return self._process_response(
+                            cast_to=cast_to,
+                            options=prepared,
+                            response=response,
+                            stream=stream,
+                            stream_cls=stream_cls,
+                            retries_taken=retries_taken,
+                        )
+                else:
+                    request = APIRequest(
+                        options=model_copy(input_options),
+                        cast_to=cast_to,
+                        stream=stream,
+                        stream_cls=stream_cls,
+                        retries_taken=retries_taken,
+                    )
+                    result: Any = chain(request)
+                    if not isinstance(result, BaseAPIResponse) or result.http_response.is_success:
+                        return cast(Union[ResponseT, _StreamT], self._finalize_middleware_result(result, request))
+                    response = result.http_response
+            except Exception as err:
+                should_retry, failed_response = self._should_retry_exception(err)
+                if remaining_retries <= 0 or not should_retry:
+                    raise
+    
+                if failed_response is not None and not failed_response.is_closed:
+                    failed_response.close()
+    
+                self._sleep_for_retry(
+                    retries_taken=retries_taken,
+                    max_retries=max_retries,
+                    options=input_options,
+                    response=failed_response,
+                )
+                continue
+    
+            # the attempt produced an error-status response — possibly inspected,
+            # replaced or passed through by middleware
+            if remaining_retries > 0 and self._should_retry(response):
+                if not response.is_closed:
+                    response.close()
+                self._sleep_for_retry(
+                    retries_taken=retries_taken,
+                    max_retries=max_retries,
+                    options=input_options,
+                    response=response,
+                )
+                continue
+    
+            # If the response is streamed then we need to explicitly read the response
+            # to completion before attempting to access the response text.
+            if not response.is_closed:
+                response.read()
+    
+>           raise self._make_status_error_from_response(response) from None
+E           anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011Ccf2eusxFsSLSdDaCjNRg'}
+
+.venv\Lib\site-packages\anthropic\_base_client.py:1195: BadRequestError
+=========================== short test summary info ===========================
+FAILED tests/test_divergence.py::test_catches_the_lie - anthropic.BadRequestE...
+============================= 1 failed in 26.21s ==============================
