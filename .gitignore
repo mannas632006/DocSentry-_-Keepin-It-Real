@@ -1,9 +1,0 @@
-.venv/
-__pycache__/
-*.pyc
-.env
-chroma_db/
-.pytest_cache/
-dashboard/node_modules/
-dashboard/dist/
-docsentry.db
