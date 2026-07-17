@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docsentry"
+version = "2.0.0"
+description = "An autonomous agent that keeps documentation honest."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Muhammad Anas" }]
+keywords = ["documentation", "agent", "llm", "static-analysis", "github"]
+
+# Deliberately lean: no torch, no transformers, no chromadb. The default
+# retrieval backend is pure-Python BM25 so the whole service installs in
+# well under the memory/disk budget of a free hosting tier.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+    "GitPython>=3.1.43",
+    "PyGithub>=2.3",
+    "tree-sitter>=0.23",
+    "tree-sitter-python>=0.23",
+    "openai>=1.40",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# Semantic retrieval. Heavy (onnxruntime); opt in for local use only.
+chroma = ["chromadb>=0.5"]
+dev = ["pytest>=8", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/mannas632006/DocSentry-_-Keepin-It-Real"
+
+[project.scripts]
+docsentry = "docsentry.cli:main"
+
+[tool.setuptools]
+packages = [
+    "docsentry",
+    "docsentry.agents",
+    "docsentry.core",
+    "docsentry.llm",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    # GitPython leaves git subprocesses for the GC to reap; on Windows the
+    # handle is already gone by then. Noise from the library, not from us.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
