@@ -85,6 +85,13 @@ def test_ensure_repo_uses_local_path(local_repo):
     assert ensure_repo(fetch=False) == local_repo.resolve()
 
 
+def test_ensure_repo_with_fetch_on_a_remoteless_repo(local_repo):
+    """A local-only checkout has no origin. Reaching for repo.remotes.origin
+    raises AttributeError rather than GitCommandError, so it slipped past the
+    error handling and killed the run."""
+    assert ensure_repo(fetch=True) == local_repo.resolve()
+
+
 def test_ensure_repo_rejects_non_repo(tmp_path, monkeypatch):
     from docsentry.config import settings
     plain = tmp_path / "not-a-repo"

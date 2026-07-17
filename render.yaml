@@ -1,0 +1,79 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo.
+# Then set the three secrets marked `sync: false` in the Render UI; the rest
+# are filled in or generated automatically.
+#
+# Free plan notes, honestly:
+#   - The service spins down after ~15 minutes idle and takes ~50s to wake.
+#     GitHub webhooks time out after 10s, so the first push after an idle
+#     period will show as a FAILED delivery even though the run still happens
+#     once the service wakes. Redeliver it from the repo's webhook page, or
+#     keep the service warm (see the cron job below).
+#   - The disk is ephemeral. The SQLite history resets on every deploy and
+#     restart. Issues and PRs already opened on GitHub are unaffected — the
+#     database is only a local cache of what the agent did.
+
+services:
+  - type: web
+    name: docsentry-api
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install .
+    startCommand: uvicorn docsentry.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+      # --- LLM ---
+      - key: LLM_PROVIDER
+        value: groq
+      # Free key from https://console.groq.com/keys
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+
+      # --- GitHub ---
+      # Fine-grained PAT with read+write on Contents, Issues and Pull requests
+      # for the watched repo.
+      - key: GITHUB_TOKEN
+        sync: false
+      # owner/name of the repo to watch.
+      - key: TARGET_REPO
+        sync: false
+
+      # Blank on purpose: the agent clones TARGET_REPO itself. A hosted
+      # instance has no sibling checkout to point at.
+      - key: LOCAL_REPO_PATH
+        value: ""
+
+      # --- Secrets Render generates for you ---
+      # Copy WEBHOOK_SECRET into the GitHub webhook's Secret field.
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      # Paste ADMIN_TOKEN into the dashboard's Settings panel to enable
+      # "Run agent". Without it the write endpoints stay disabled.
+      - key: ADMIN_TOKEN
+        generateValue: true
+
+      # --- Behaviour ---
+      # Start with dry_run=true to watch it work without it opening anything.
+      # Flip to false once you trust the verdicts.
+      - key: DRY_RUN
+        value: "true"
+      - key: AUTOFIX_THRESHOLD
+        value: "0.85"
+      - key: ALERT_THRESHOLD
+        value: "0.50"
+      - key: MAX_DOCS_PER_CHANGE
+        value: "1"
+      - key: RETRIEVAL_BACKEND
+        value: bm25
+
+      # Lock this to your Vercel URL once the dashboard is deployed.
+      - key: CORS_ORIGINS
+        value: "*"

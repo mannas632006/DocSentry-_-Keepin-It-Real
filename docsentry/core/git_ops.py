@@ -79,6 +79,11 @@ def ensure_repo(fetch: bool = True) -> Path:
 
 
 def _try_fetch(repo: Repo) -> None:
+    # A local-only checkout has no origin at all, which is normal when someone
+    # points local_repo_path at a scratch repo.
+    if "origin" not in {r.name for r in repo.remotes}:
+        log.debug("no origin remote; nothing to fetch")
+        return
     try:
         repo.remotes.origin.fetch(prune=True)
     except GitCommandError as e:

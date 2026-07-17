@@ -177,7 +177,19 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _force_utf8_stdout() -> None:
+    """Windows consoles default to cp1252, which cannot encode the arrows and
+    dashes in change details — printing a finding raised UnicodeEncodeError and
+    took the command down. The text itself stays UTF-8 for GitHub."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass  # already unicode-safe, or redirected to something exotic
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_stdout()
     args = build_parser().parse_args(argv)
     _log(args.verbose)
     try:
