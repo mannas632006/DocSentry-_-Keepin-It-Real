@@ -50,7 +50,10 @@ def render_fixed_doc(repo_path: str | Path, verdict: dict[str, Any]) -> str:
 
     new_lines = lines[:start] + fix.splitlines() + lines[end:]
     new_text = "\n".join(new_lines) + "\n"
-    if new_text == doc_path.read_text(encoding="utf-8"):
+    # Compare line-wise, not byte-wise: new_text is always newline-terminated,
+    # so a file without a trailing newline would otherwise look "changed" and
+    # produce a PR whose only diff is that newline.
+    if new_lines == lines:
         raise FixError("suggested fix is identical to the current content")
     return new_text
 

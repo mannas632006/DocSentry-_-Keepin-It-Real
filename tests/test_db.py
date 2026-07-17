@@ -42,6 +42,28 @@ def test_save_and_read_round_trip():
     assert f["confidence"] == 0.7
 
 
+def test_finding_doc_keeps_its_line_range():
+    """The documented Finding contract promises doc.start_line/end_line. They
+    used to be silently dropped on the way into SQLite, so a stored finding had
+    a different shape from the one the pipeline produced."""
+    run_id = db.save_run("abc", [_finding() | {
+        "doc": {"file": "README.md", "heading": "divide",
+                "start_line": 7, "end_line": 11},
+    }])
+    doc = db.get_run(run_id)["results"][0]["doc"]
+    assert doc == {"file": "README.md", "heading": "divide",
+                   "start_line": 7, "end_line": 11}
+
+
+def test_finding_without_a_line_range_defaults_to_zero():
+    """Findings like no_semantic_changes carry no doc at all."""
+    run_id = db.save_run("abc", [{"status": "no_semantic_changes",
+                                  "change": {}, "doc": {}}])
+    doc = db.get_run(run_id)["results"][0]["doc"]
+    assert doc["start_line"] == 0
+    assert doc["end_line"] == 0
+
+
 def test_get_missing_run_is_none():
     assert db.get_run(999) is None
 

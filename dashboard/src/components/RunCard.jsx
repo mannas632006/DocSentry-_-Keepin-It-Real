@@ -21,7 +21,7 @@ function headline(results) {
   return results[0]?.status ?? "clean";
 }
 
-export default function RunCard({ run, defaultOpen = false }) {
+export default function RunCard({ run, repo, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const results = run.results ?? [];
   const top = headline(results);
@@ -76,7 +76,9 @@ export default function RunCard({ run, defaultOpen = false }) {
             </p>
           )}
 
-          {results.map((f, i) => <Finding key={f.id ?? i} finding={f} />)}
+          {results.map((f, i) => (
+            <Finding key={f.id ?? i} finding={f} repo={repo} commit={run.commit} />
+          ))}
 
           <div className="finding-meta" style={{ marginTop: 10 }}>
             <span>{fullTime(run.ts)}</span>

@@ -19,7 +19,7 @@ from typing import Any, Iterator
 
 from docsentry.config import settings
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def _db_file() -> Path:
@@ -72,6 +72,11 @@ def init_db() -> None:
                 change_detail TEXT DEFAULT '',
                 doc_file      TEXT DEFAULT '',
                 doc_heading   TEXT DEFAULT '',
+                -- The line range the finding is about. Persisted so the stored
+                -- finding matches the shape the pipeline produces, and so a
+                -- reader can link straight to the offending lines.
+                doc_start     INTEGER DEFAULT 0,
+                doc_end       INTEGER DEFAULT 0,
                 confidence    REAL DEFAULT 0,
                 mismatch      TEXT DEFAULT '',
                 suggested_fix TEXT DEFAULT '',
@@ -120,8 +125,9 @@ def save_run(
             doc = r.get("doc") or {}
             c.execute(
                 "INSERT INTO findings (run_id, status, change_file, change_kind,"
-                " change_name, change_detail, doc_file, doc_heading, confidence,"
-                " mismatch, suggested_fix, url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                " change_name, change_detail, doc_file, doc_heading, doc_start,"
+                " doc_end, confidence, mismatch, suggested_fix, url)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     run_id,
                     r.get("status", "unknown"),
@@ -131,6 +137,8 @@ def save_run(
                     change.get("detail", ""),
                     doc.get("file", ""),
                     doc.get("heading", ""),
+                    int(doc.get("start_line") or 0),
+                    int(doc.get("end_line") or 0),
                     float(r.get("confidence") or 0.0),
                     r.get("mismatch", "") or "",
                     r.get("suggested_fix", "") or "",
@@ -216,7 +224,12 @@ def _finding_row(r: sqlite3.Row) -> dict[str, Any]:
             "name": r["change_name"],
             "detail": r["change_detail"],
         },
-        "doc": {"file": r["doc_file"], "heading": r["doc_heading"]},
+        "doc": {
+            "file": r["doc_file"],
+            "heading": r["doc_heading"],
+            "start_line": r["doc_start"],
+            "end_line": r["doc_end"],
+        },
         "confidence": r["confidence"],
         "mismatch": r["mismatch"],
         "suggested_fix": r["suggested_fix"],

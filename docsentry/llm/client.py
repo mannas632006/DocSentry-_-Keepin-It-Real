@@ -8,10 +8,10 @@ development and a hosted model in production.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
-from functools import lru_cache
 from typing import Any
 
 from openai import OpenAI, OpenAIError
@@ -25,17 +25,21 @@ class LLMError(RuntimeError):
     """The model could not be reached or refused the request."""
 
 
-@lru_cache(maxsize=None)
-def _client_for(provider: str, base_url: str, api_key: str,
-                timeout: float, retries: int) -> OpenAI:
-    # Cached on the config values themselves so tests can change settings and
-    # still get a fresh client, while normal runs reuse one connection pool.
-    return OpenAI(
-        base_url=base_url,
-        # Ollama ignores the key but the SDK requires a non-empty string.
-        api_key=api_key or "not-needed",
-        timeout=timeout,
-        max_retries=retries,
+# Single-slot cache: one client, rebuilt when the config behind it changes.
+# Keyed on a hash of the credential rather than the credential itself, and
+# bounded to one entry — an lru_cache over the raw settings would keep every
+# API key ever used reachable in memory for the process lifetime.
+_cached: dict[str, Any] = {"sig": None, "client": None}
+
+
+def _signature() -> tuple:
+    key = settings.llm_api_key
+    return (
+        settings.llm_provider,
+        settings.base_url,
+        hashlib.sha256(key.encode()).hexdigest() if key else "",
+        settings.llm_timeout,
+        settings.llm_max_retries,
     )
 
 
@@ -44,13 +48,17 @@ def get_client() -> OpenAI:
         raise LLMError(
             f"provider {settings.llm_provider!r} requires llm_api_key, which is unset"
         )
-    return _client_for(
-        settings.llm_provider,
-        settings.base_url,
-        settings.llm_api_key,
-        settings.llm_timeout,
-        settings.llm_max_retries,
-    )
+    sig = _signature()
+    if _cached["sig"] != sig:
+        _cached["client"] = OpenAI(
+            base_url=settings.base_url,
+            # Ollama ignores the key but the SDK requires a non-empty string.
+            api_key=settings.llm_api_key or "not-needed",
+            timeout=settings.llm_timeout,
+            max_retries=settings.llm_max_retries,
+        )
+        _cached["sig"] = sig
+    return _cached["client"]
 
 
 def parse_verdict(raw: str) -> dict[str, Any]:
@@ -134,7 +142,7 @@ def probe() -> dict[str, Any]:
         client = get_client()
         client.models.list()
         info["reachable"] = True
-    except (LLMError, OpenAIError, Exception) as e:  # noqa: BLE001 - health must not throw
+    except Exception as e:  # noqa: BLE001 - a health check must never throw
         info["reachable"] = False
         info["error"] = str(e)[:200]
     return info

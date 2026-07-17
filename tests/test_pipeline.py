@@ -199,3 +199,12 @@ def test_run_options_resolve_from_settings(isolated_settings):
     override = RunOptions(dry_run=True, alert_threshold=0.1).resolved()
     assert override["dry_run"] is True
     assert override["alert_threshold"] == 0.1
+
+
+def test_dry_run_false_overrides_a_dry_run_environment(isolated_settings, monkeypatch):
+    """dry_run=False must force acting even when the environment sets it true —
+    render.yaml deliberately ships dry_run=true, so without an off switch a
+    deployed instance could never open anything."""
+    monkeypatch.setattr(isolated_settings, "dry_run", True)
+    assert RunOptions().resolved()["dry_run"] is True          # inherits
+    assert RunOptions(dry_run=False).resolved()["dry_run"] is False  # forces off

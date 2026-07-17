@@ -306,7 +306,12 @@ export default function App() {
       )}
 
       {runs.map((run, i) => (
-        <RunCard key={run.id} run={run} defaultOpen={i === 0 && page === 0} />
+        <RunCard
+          key={run.id}
+          run={run}
+          repo={config?.target_repo}
+          defaultOpen={i === 0 && page === 0}
+        />
       ))}
 
       {pages > 1 && (

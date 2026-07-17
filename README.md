@@ -99,7 +99,9 @@ just the push event).
 | `docsentry config` | Print the effective configuration (secrets redacted) |
 | `docsentry serve` | Start the API and webhook receiver |
 
-`run` takes `--dry-run`, `--json`, `--autofix-threshold`, `--alert-threshold` and `--max-docs`.
+`run` takes `--dry-run` / `--no-dry-run`, `--json`, `--autofix-threshold`, `--alert-threshold`
+and `--max-docs`. Both dry-run flags are explicit because `dry_run` can be set in the environment
+(as the Render blueprint does) — `--no-dry-run` is how you act anyway for one run.
 
 ## API
 
@@ -188,7 +190,7 @@ docker run -p 8000:8000 --env-file .env docsentry
 ## Tests
 
 ```bash
-pytest                    # 152 tests, ~20s, no network and no API key needed
+pytest                    # 173 tests, ~20s, no network and no API key needed
 ```
 
 The suite builds a real git repo in a temp dir per test and scripts the model, so it exercises the

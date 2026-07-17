@@ -3,11 +3,23 @@ import { confidenceColor, inlineCode, statusInfo } from "../lib/format.js";
 
 const isDryRun = (url) => url?.startsWith("dry-run://");
 
-export default function Finding({ finding }) {
+/** Deep-link to the offending lines, pinned to the commit that was analysed —
+ *  the section may well have moved since. */
+function docLink(repo, commit, doc) {
+  if (!repo || !doc?.file) return null;
+  const ref = commit || "HEAD";
+  const lines = doc.start_line
+    ? `#L${doc.start_line}${doc.end_line > doc.start_line ? `-L${doc.end_line}` : ""}`
+    : "";
+  return `https://github.com/${repo}/blob/${ref}/${doc.file}${lines}`;
+}
+
+export default function Finding({ finding, repo, commit }) {
   const [showFix, setShowFix] = useState(false);
   const info = statusInfo(finding.status);
   const { change, doc, confidence, mismatch, suggested_fix: fix, url } = finding;
   const detail = change?.detail || mismatch || info.label;
+  const href = docLink(repo, commit, doc);
 
   return (
     <div className="finding">
@@ -25,10 +37,26 @@ export default function Finding({ finding }) {
             {doc?.file && (
               <>
                 <span aria-hidden="true">→</span>
-                <span className="mono">
-                  {doc.file}
-                  {doc.heading ? ` § ${doc.heading}` : ""}
-                </span>
+                {href ? (
+                  <a
+                    className="mono"
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={doc.start_line
+                      ? `Open ${doc.file} lines ${doc.start_line}-${doc.end_line} at this commit`
+                      : `Open ${doc.file}`}
+                  >
+                    {doc.file}
+                    {doc.heading ? ` § ${doc.heading}` : ""}
+                    {doc.start_line ? `:${doc.start_line}` : ""}
+                  </a>
+                ) : (
+                  <span className="mono">
+                    {doc.file}
+                    {doc.heading ? ` § ${doc.heading}` : ""}
+                  </span>
+                )}
               </>
             )}
             {change?.kind && (

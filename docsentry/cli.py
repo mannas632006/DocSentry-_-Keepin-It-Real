@@ -101,7 +101,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     path = ensure_repo(fetch=not args.no_fetch)
     commit = args.commit or latest_commit_hash(path)
     options = RunOptions(
-        dry_run=args.dry_run or None,
+        # None means "use the configured default"; the flags force either way.
+        # --dry-run alone could only ever turn it on, so a deployment that sets
+        # dry_run=true (as render.yaml does) had no way to act from the CLI.
+        dry_run=args.dry_run,
         autofix_threshold=args.autofix_threshold,
         alert_threshold=args.alert_threshold,
         max_docs_per_change=args.max_docs,
@@ -155,8 +158,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("run", help="run the agent on a commit")
     r.add_argument("commit", nargs="?", help="commit SHA (default: repo HEAD)")
-    r.add_argument("--dry-run", action="store_true",
-                   help="analyse but open no issues or PRs")
+    dr = r.add_mutually_exclusive_group()
+    dr.add_argument("--dry-run", dest="dry_run", action="store_true", default=None,
+                    help="analyse but open no issues or PRs")
+    dr.add_argument("--no-dry-run", dest="dry_run", action="store_false",
+                    help="open issues and PRs even if dry_run is set in the environment")
     r.add_argument("--json", action="store_true", help="machine-readable output")
     r.add_argument("--no-fetch", action="store_true", help="skip git fetch")
     r.add_argument("--autofix-threshold", type=float, metavar="0-1")

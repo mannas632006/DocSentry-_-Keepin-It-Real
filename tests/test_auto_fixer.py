@@ -77,6 +77,16 @@ def test_identical_fix_rejected(docfile):
         render_fixed_doc(docfile, _verdict(section))
 
 
+def test_identical_fix_rejected_without_a_trailing_newline(tmp_path):
+    """The rendered text is always newline-terminated. Comparing it byte-wise
+    against a file that has no trailing newline made an unchanged section look
+    changed, opening a PR whose only diff was the newline."""
+    (tmp_path / "README.md").write_text(DOC.rstrip("\n"), encoding="utf-8")
+    section = "## divide\n\nBy default `safe` is **True**, so dividing by zero returns `None`."
+    with pytest.raises(FixError, match="identical"):
+        render_fixed_doc(tmp_path, _verdict(section))
+
+
 def test_missing_doc_file_rejected(docfile):
     v = _verdict("## divide\n\nx")
     v["doc_file"] = "NOPE.md"
