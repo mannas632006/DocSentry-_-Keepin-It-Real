@@ -163,3 +163,41 @@ def test_verify_rejects_empty_fix(fake_llm):
     assert "empty" in reason
     # The model must not even be consulted about an empty fix.
     assert fake_llm.calls == []
+
+
+def test_verify_asks_the_verification_question_not_detection(fake_llm):
+    """Regression guard for the real Groq failure: re-running the detection
+    prompt made the model latch onto the old value in the change and reject a
+    correct fix. Verification must use its own prompt, anchored on the known
+    lie, with the doc presented as already corrected."""
+    from docsentry.agents.divergence import SYSTEM, SYSTEM_VERIFY
+
+    fake_llm.reply = {"diverged": False, "confidence": 0.95,
+                      "mismatch": "", "suggested_fix": ""}
+    verify_fix(CHANGE, "## divide\n\nsafe is False now.", VERDICT)
+
+    system, user = fake_llm.calls[0]
+    assert system == SYSTEM_VERIFY
+    assert system != SYSTEM
+    # The prompt must carry the specific claim that was wrong and the corrected
+    # text, so the model judges "is this fixed?" rather than re-deriving.
+    assert VERDICT["mismatch"] in user
+    assert "safe is False now." in user
+    assert "CORRECTED" in user
+
+
+def test_verify_correction_maps_the_schema(fake_llm):
+    """diverged=false in the reply means the fix worked (resolved)."""
+    from docsentry.agents.divergence import verify_correction
+
+    fake_llm.reply = {"diverged": False, "confidence": 0.9, "mismatch": "",
+                      "suggested_fix": ""}
+    good = verify_correction(CHANGE, "safe was said to be True", "corrected text")
+    assert good["resolved"] is True
+    assert good["error"] is None
+
+    fake_llm.reply = {"diverged": True, "confidence": 0.8,
+                      "mismatch": "still says True", "suggested_fix": ""}
+    bad = verify_correction(CHANGE, "safe was said to be True", "still wrong text")
+    assert bad["resolved"] is False
+    assert bad["reason"] == "still says True"

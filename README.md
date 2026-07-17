@@ -149,12 +149,13 @@ case — `divide(a, b, safe=True)` becomes `safe=False` while the README still s
 |---|---|
 | `orca-mini` (2B, local) | Detects it, but confidence caps around 0.5 — never reaches auto-fix |
 | `llama3.2:1b` (local) | **Misses it entirely** — reports "clean" |
-| `llama-3.3-70b-versatile` (Groq) | Detects it with calibrated confidence |
+| `llama-3.3-70b-versatile` (Groq) | Detects at 90%, drafts a correct fix, passes verification → **auto-fix PR** |
 
 Local models are genuinely free and private, and they're a fine way to develop against. But a 1–2B
 model cannot reliably tell "the doc contradicts this change" from "the doc is merely related to
 it", and that judgement is the whole agent. Groq's free tier costs nothing and needs no card, which
-is why it's the default.
+is why it's the default — and it's the only configuration measured to carry a change all the way to
+an opened pull request (3/3 runs, dry-run against the testbed).
 
 ## Deploying (free)
 

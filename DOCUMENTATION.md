@@ -200,9 +200,17 @@ confidence score, and a suggested fix. Findings are de-duplicated on
 422s.
 
 ### `agents/verifier.py` — VERIFY (self-check)
-Before a fix ships, re-runs `check_divergence` on the *patched* content. If the doc still lies, the
-auto-fix is downgraded to an issue. This is the guardrail against LLM overconfidence — the agent
+Before a fix ships, the agent confirms the correction actually resolved the drift. If it did not,
+the auto-fix is downgraded to an issue. This is the guardrail against LLM overconfidence — the agent
 grades its own homework before submitting it.
+
+Crucially, this is **not** a second `check_divergence` run. Re-judging the corrected doc against the
+same change ("`safe`: True → False") led the model to latch onto the old value named in the change
+and "confirm" a divergence the fix had already resolved — so a genuinely correct fix was downgraded
+to an issue, and the auto-fix PR path effectively never fired. `verify_correction` instead asks the
+narrow question — *given this doc, already corrected, is the specific known lie gone?* — anchored on
+the original `mismatch`. With that framing, a real model (Groq `llama-3.3-70b`) passes the correct
+fix and the pipeline opens the PR.
 
 It **fails closed**: an unreachable model means "unverified", not "clean". Returns
 `(passed, reason)`, and the reason is carried into the resulting issue.
