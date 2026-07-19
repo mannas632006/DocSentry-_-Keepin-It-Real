@@ -42,11 +42,32 @@ def divide(a, b, safe=False): ...
 …while the README still says the default is `True`. Within a minute the Actions
 log shows the verdict, and (with `DRY_RUN` removed) an issue or PR appears.
 
+## Want a graphical dashboard too?
+
+Use [`docsentry-dashboard.yml`](docsentry-dashboard.yml) **instead of**
+`docsentry.yml`. It does everything above and also publishes a self-contained
+monitoring dashboard to **GitHub Pages** on every push — run history, status
+tiles, confidence meters, and deep links to the offending lines. No server, no
+database, still no card.
+
+Extra one-time setup:
+
+1. **Settings → Pages → Build and deployment → Source = "GitHub Actions"**.
+2. Put `docsentry-dashboard.yml` at `.github/workflows/docsentry.yml` (it
+   replaces the basic one — don't run both, they'd double-analyse).
+
+Your dashboard lands at `https://<your-username>.github.io/<repo>/`. It needs a
+**public** repo (GitHub Pages on private repos is a paid feature).
+
+Prefer to keep it local? `docsentry run --history history.json` writes the same
+history file on your machine, and `docsentry dashboard` emits the `dashboard.html`
+to open next to it — no hosting at all.
+
 ## Notes
 
-- **Output lives where you work.** There's no separate dashboard in this mode —
-  the issues and PRs it opens *are* the output, on the repo itself, and the full
-  run is in the Actions log.
+- **Output lives where you work.** The issues and PRs it opens *are* the output,
+  on the repo itself, and the full run is in the Actions log — plus the
+  dashboard, if you enabled it.
 - **Cost.** GitHub Actions is free for public repos and has a generous free
   monthly allowance for private ones. Groq's free tier covers the model.
 - **Pin the version.** The workflow installs DocSentry from `@main`. Pin it to a

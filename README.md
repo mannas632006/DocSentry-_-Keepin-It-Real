@@ -172,6 +172,18 @@ docsentry run --dry-run     # analyse the latest commit, open nothing
 docsentry run               # open a "Docs Lie" issue or a verified fix PR
 ```
 
+### A dashboard, without a server
+
+There are two dashboards for the two ways of running DocSentry:
+
+- **Static** — for the serverless (GitHub Action / local) mode. `docsentry dashboard`
+  emits one self-contained `dashboard.html` that reads a `history.json` written by
+  `docsentry run --history`. Publish both to **GitHub Pages** for a live monitor at
+  `https://<you>.github.io/<repo>/` (the [dashboard workflow](deploy/github-action/docsentry-dashboard.yml)
+  does this automatically), or just open the HTML off disk. No server, no build, no card.
+- **Live** — the React app in [dashboard/](dashboard/), for the hosted webhook server; it
+  reads the FastAPI + SQLite backend and adds write controls (trigger a run, clear history).
+
 ### Hosting the live server + dashboard
 
 If you want the always-on webhook service with the dashboard, the same app runs as one container:

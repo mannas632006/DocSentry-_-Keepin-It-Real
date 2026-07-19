@@ -38,8 +38,23 @@ def test_commit_is_optional():
 
 
 def test_every_command_is_wired():
-    for cmd in ("doctor", "index", "run", "config", "serve"):
+    for cmd in ("doctor", "index", "run", "config", "serve", "dashboard"):
         assert callable(_parse([cmd]).func)
+
+
+def test_run_accepts_history_flag():
+    assert _parse(["run", "--history", "h.json"]).history == "h.json"
+    assert _parse(["run"]).history is None
+
+
+def test_dashboard_command_writes_a_file(tmp_path, capsys):
+    assert main(["dashboard", "--out", str(tmp_path),
+                 "--history-url", "https://x/history.json"]) == 0
+    out = tmp_path / "dashboard.html"
+    assert out.is_file()
+    html = out.read_text(encoding="utf-8")
+    assert "https://x/history.json" in html
+    assert html.strip().startswith("<!doctype html>")
 
 
 def test_a_command_is_required():
