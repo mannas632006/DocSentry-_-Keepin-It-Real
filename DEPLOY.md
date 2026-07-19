@@ -174,12 +174,10 @@ them.
 ## Alternatives
 
 **One service instead of two.** The [Dockerfile](Dockerfile) builds the dashboard and serves it
-from the API, so Render alone hosts everything and `VITE_API_URL` becomes unnecessary — the
-dashboard defaults to its own origin. Set the Render service's runtime to Docker.
+from the API, so a single service hosts everything and `VITE_API_URL` becomes unnecessary — the
+dashboard defaults to its own origin. Set the service's runtime to Docker.
 
-**Hugging Face Spaces.** A free Docker Space has more RAM and no spin-down, which sidesteps the
-cold-start caveat. Use the same Dockerfile; set the secrets in the Space settings.
-
-**Local, no deploy.** `docsentry serve` plus `ngrok http 8000` gives a public webhook URL from your
-machine, and `llm_provider=ollama` keeps it fully offline. Read the model comparison in the README
-first — small local models miss the drift this agent exists to catch.
+**Local, no deploy.** `docsentry serve` plus a tunnel (`cloudflared tunnel --url
+http://localhost:8000`, free and no account) gives a public webhook URL from your machine, and
+`llm_provider=ollama` keeps it fully offline. Read the model comparison in the README first — small
+local models miss the drift this agent exists to catch.
