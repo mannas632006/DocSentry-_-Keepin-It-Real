@@ -1,7 +1,27 @@
-# Deploying DocSentry for free
+# Deploying DocSentry
+
+## Just want to use it? Use the GitHub Action (recommended, no server)
+
+If the goal is "watch my repos and catch drift," you do **not** need to host anything. DocSentry
+runs as a GitHub Action inside GitHub's own runners — no server, no webhook, no credit card, and
+the token to open issues/PRs is provided automatically. The only secret you add is a free Groq key.
+Two-minute setup in **[deploy/github-action/](deploy/github-action/README.md)**.
+
+Everything below is for running the **always-on webhook service + dashboard** instead, if you
+specifically want that.
+
+> **A note on "free" hosting.** The container-hosting landscape has tightened: Render's free tier
+> needs a card-verification hold, and Hugging Face moved Docker Spaces behind a paid plan. The
+> GitHub Action above avoids all of it. If you want a hosted server anyway, Koyeb is the remaining
+> GitHub-native free-ish option to try, or run locally and expose it with a Cloudflare Tunnel
+> (`cloudflared tunnel --url http://localhost:8000`) — free, no card, live while your machine is.
+
+---
+
+## Hosting the webhook service (Render example)
 
 API on **Render** (free web service), dashboard on **Vercel** (free static hosting), LLM on
-**Groq** (free tier, no card). Total cost: nothing.
+**Groq** (free tier, no card). Note the card caveat above for Render.
 
 Read [Free-tier caveats](#free-tier-caveats) first — two of them shape how you'll use this.
 

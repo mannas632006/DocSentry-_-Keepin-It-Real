@@ -1,0 +1,58 @@
+# DocSentry as a GitHub Action.
+#
+# Drop this file into any repo you want watched, at:
+#   .github/workflows/docsentry.yml
+# Add one secret (Settings -> Secrets and variables -> Actions):
+#   GROQ_API_KEY   — a free key from https://console.groq.com/keys
+#
+# On every push, DocSentry checks whether the change made the docs lie and, if
+# so, opens an issue (or a verified fix PR). No server, no webhook, no hosting —
+# it runs inside GitHub's runners, and the token to open issues/PRs is provided
+# automatically.
+#
+# It starts in DRY_RUN mode: it reports findings in the Actions log but opens
+# nothing. Once you trust it, delete the DRY_RUN line to let it act.
+
+name: DocSentry
+
+on:
+  push:
+
+# The token needs these to open an issue, and to push a branch + open a fix PR.
+# If nothing gets opened, check Settings -> Actions -> General ->
+# "Workflow permissions" is set to "Read and write".
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  docsentry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          # Full history so the pushed commit can be diffed against its parent,
+          # and so a fix branch can be pushed without shallow-clone trouble.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DocSentry
+        run: pip install "git+https://github.com/mannas632006/DocSentry-_-Keepin-It-Real.git@main"
+
+      - name: Analyse the pushed commit
+        env:
+          LLM_PROVIDER: groq
+          LLM_MODEL: llama-3.3-70b-versatile
+          LLM_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Provided by Actions automatically; scoped to this repo.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ github.repository }}
+          LOCAL_REPO_PATH: ${{ github.workspace }}
+          # Remove this line to let DocSentry open real issues and PRs.
+          DRY_RUN: "true"
+        run: docsentry run "${{ github.sha }}"
