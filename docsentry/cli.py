@@ -87,7 +87,9 @@ def cmd_index(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    from docsentry.core.git_ops import ensure_repo, latest_commit_hash
+    import time as _time
+
+    from docsentry.core.git_ops import commit_message, ensure_repo, latest_commit_hash
     from docsentry.pipeline import RunOptions, run_pipeline
 
     problems = settings.validate_for_run()
@@ -109,7 +111,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         alert_threshold=args.alert_threshold,
         max_docs_per_change=args.max_docs,
     )
+    started = _time.perf_counter()
     results = run_pipeline(commit, options)
+    duration_ms = int((_time.perf_counter() - started) * 1000)
+
+    # Persist the run for the static dashboard. The Action has no database, so
+    # history lives in a JSON file the dashboard reads.
+    if args.history:
+        from docsentry.history import append_run, make_record
+        record = make_record(
+            commit, results,
+            commit_msg=commit_message(path, commit),
+            duration_ms=duration_ms,
+            trigger="action" if args.history else "manual",
+            dry_run=options.resolved()["dry_run"],
+            repo=settings.target_repo,
+        )
+        append_run(args.history, record)
 
     if args.json:
         print(json.dumps(results, indent=2))
@@ -137,6 +155,22 @@ def cmd_serve(args: argparse.Namespace) -> int:
         port=args.port,
         reload=args.reload,
     )
+    return 0
+
+
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    """Emit the self-contained monitoring dashboard (no server, no build)."""
+    from pathlib import Path
+
+    from docsentry.dashboard_static import render_dashboard
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / "dashboard.html"
+    dest.write_text(render_dashboard(args.history_url), encoding="utf-8")
+    print(f"Wrote {dest}")
+    print(f"It reads run history from: {args.history_url}")
+    print("Open it in a browser, or publish it next to a history.json file.")
     return 0
 
 
@@ -169,10 +203,20 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--alert-threshold", type=float, metavar="0-1")
     r.add_argument("--max-docs", type=int, metavar="N",
                    help="doc sections judged per code change")
+    r.add_argument("--history", metavar="FILE",
+                   help="append this run to a JSON history file for the dashboard")
     r.set_defaults(func=cmd_run)
 
     c = sub.add_parser("config", help="print the effective configuration")
     c.set_defaults(func=cmd_config)
+
+    db = sub.add_parser("dashboard",
+                        help="write the standalone monitoring dashboard (dashboard.html)")
+    db.add_argument("--out", default=".", metavar="DIR",
+                    help="directory to write dashboard.html into (default: .)")
+    db.add_argument("--history-url", default="history.json", metavar="URL",
+                    help="where the dashboard fetches run history (default: history.json)")
+    db.set_defaults(func=cmd_dashboard)
 
     s = sub.add_parser("serve", help="run the API and webhook receiver")
     s.add_argument("--host", default="127.0.0.1")

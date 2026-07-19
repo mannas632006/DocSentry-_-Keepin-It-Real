@@ -157,18 +157,45 @@ it", and that judgement is the whole agent. Groq's free tier costs nothing and n
 is why it's the default — and it's the only configuration measured to carry a change all the way to
 an opened pull request (3/3 runs, dry-run against the testbed).
 
-## Deploying (free)
+## Using it on your own repos (free, no server)
 
-The API runs on [Render](https://render.com)'s free tier, the dashboard on
-[Vercel](https://vercel.com). See **[DEPLOY.md](DEPLOY.md)** for the full walkthrough, including
-the two free-tier caveats worth knowing up front (cold starts vs. GitHub's 10s webhook timeout,
-and ephemeral history).
+The simplest way to run DocSentry is as a **GitHub Action** — it runs inside GitHub's runners on
+every push, needs no hosting and no credit card, and the token to open issues/PRs is provided
+automatically. The only secret you add is a free [Groq key](https://console.groq.com/keys). Drop
+[`deploy/github-action/docsentry.yml`](deploy/github-action/docsentry.yml) into any repo you want
+watched — see [deploy/github-action/](deploy/github-action/README.md).
+
+Or run it by hand against any local checkout:
 
 ```bash
-# Or one container serving both:
+docsentry run --dry-run     # analyse the latest commit, open nothing
+docsentry run               # open a "Docs Lie" issue or a verified fix PR
+```
+
+### A dashboard, without a server
+
+There are two dashboards for the two ways of running DocSentry:
+
+- **Static** — for the serverless (GitHub Action / local) mode. `docsentry dashboard`
+  emits one self-contained `dashboard.html` that reads a `history.json` written by
+  `docsentry run --history`. Publish both to **GitHub Pages** for a live monitor at
+  `https://<you>.github.io/<repo>/` (the [dashboard workflow](deploy/github-action/docsentry-dashboard.yml)
+  does this automatically), or just open the HTML off disk. No server, no build, no card.
+- **Live** — the React app in [dashboard/](dashboard/), for the hosted webhook server; it
+  reads the FastAPI + SQLite backend and adds write controls (trigger a run, clear history).
+
+### Hosting the live server + dashboard
+
+If you want the always-on webhook service with the dashboard, the same app runs as one container:
+
+```bash
 docker build -t docsentry .
 docker run -p 8000:8000 --env-file .env docsentry
 ```
+
+See **[DEPLOY.md](DEPLOY.md)** for hosted options and their trade-offs. Note that most "free" cloud
+tiers now want a card hold (Render) or have moved container hosting behind a paid plan (Hugging
+Face) — the GitHub Action above sidesteps all of that.
 
 ## Project layout
 

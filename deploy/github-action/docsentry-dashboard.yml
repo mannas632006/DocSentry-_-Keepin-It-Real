@@ -1,0 +1,89 @@
+# DocSentry with a live monitoring dashboard, on GitHub Pages.
+#
+# Use this INSTEAD of docsentry.yml if you want a graphical dashboard as well as
+# issues/PRs. On every push it analyses the commit, appends the run to a
+# history.json, and publishes a self-contained dashboard to GitHub Pages —
+# no server, no database, no credit card.
+#
+# One-time setup:
+#   1. Add a repo secret GROQ_API_KEY  (https://console.groq.com/keys)
+#   2. Settings -> Pages -> Build and deployment -> Source = "GitHub Actions"
+#   3. Settings -> Actions -> General -> Workflow permissions = "Read and write"
+#   4. Put this file at .github/workflows/docsentry.yml and push.
+#
+# Your dashboard: https://<your-username>.github.io/<repo>/
+# (GitHub Pages needs a public repo, or a paid plan for private repos.)
+#
+# Ships in DRY_RUN mode: it records and displays findings but opens nothing.
+# Delete the DRY_RUN line to let it open issues and fix PRs.
+
+name: DocSentry
+
+on:
+  push:
+
+permissions:
+  contents: write        # open issues / push fix branches
+  issues: write
+  pull-requests: write
+  pages: write           # publish the dashboard
+  id-token: write        # required by deploy-pages
+
+# Serialise Pages deploys so concurrent pushes don't clobber the history.
+concurrency:
+  group: docsentry-pages
+  cancel-in-progress: false
+
+jobs:
+  docsentry:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DocSentry
+        run: pip install "git+https://github.com/mannas632006/DocSentry-_-Keepin-It-Real.git@main"
+
+      - name: Carry over the existing run history
+        run: |
+          mkdir -p site
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          repo="${{ github.event.repository.name }}"
+          # Pull the history the last run already published; empty on first run.
+          curl -sfL "https://${owner}.github.io/${repo}/history.json" -o site/history.json \
+            || echo '{"runs":[]}' > site/history.json
+
+      - name: Analyse the pushed commit
+        env:
+          LLM_PROVIDER: groq
+          LLM_MODEL: llama-3.3-70b-versatile
+          LLM_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ github.repository }}
+          LOCAL_REPO_PATH: ${{ github.workspace }}
+          # Remove this line to let DocSentry open real issues and PRs.
+          DRY_RUN: "true"
+        run: docsentry run "${{ github.sha }}" --history site/history.json
+
+      - name: Build the dashboard page
+        run: |
+          docsentry dashboard --out site
+          mv site/dashboard.html site/index.html
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
