@@ -21,8 +21,8 @@ def no_github(monkeypatch):
     """Record what the agent would send to GitHub instead of sending it."""
     calls = {"issues": [], "prs": []}
 
-    def fake_issue(verdict, change, *, commit_hash="", dry_run=None):
-        calls["issues"].append((verdict, change))
+    def fake_issue(verdict, change, *, commit_hash="", dry_run=None, reason=""):
+        calls["issues"].append((verdict, change, reason))
         return "https://github.com/acme/testbed/issues/1"
 
     def fake_pr(verdict, change, *, dry_run=None):

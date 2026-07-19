@@ -94,12 +94,14 @@ def _act(change: dict, verdict: dict, opts: dict, commit_hash: str) -> dict[str,
                 # The fix could not be shipped, but the drift is real; fall
                 # back to telling a human rather than dropping the finding.
                 log.warning("auto-fix failed, escalating to an issue: %s", e)
+                why = f"the fix was verified but could not be opened as a PR ({e})"
                 url = open_docs_lie_issue(verdict, change, commit_hash=commit_hash,
-                                          dry_run=opts["dry_run"])
+                                          dry_run=opts["dry_run"], reason=why)
                 return _finding("fix_failed_verification", change, doc, verdict, url,
                                 note=f"auto-fix failed ({e}); {verdict['mismatch']}")
         url = open_docs_lie_issue(verdict, change, commit_hash=commit_hash,
-                                  dry_run=opts["dry_run"])
+                                  dry_run=opts["dry_run"],
+                                  reason=f"the drafted fix did not pass self-verification ({reason})")
         return _finding("fix_failed_verification", change, doc, verdict, url,
                         note=f"{reason}; {verdict['mismatch']}")
 
