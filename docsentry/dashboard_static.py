@@ -27,6 +27,7 @@ _TEMPLATE = r"""<!doctype html>
   --alert-fg:#fbbf72;--alert-bg:rgba(146,74,18,.20);--alert-line:#f59e0b;
   --clean-fg:#7cc0ff;--clean-bg:rgba(23,74,138,.20);--clean-line:#3b82f6;
   --esc-fg:#fde68a;--esc-bg:rgba(120,90,12,.22);--esc-line:#eab308;
+  --rev-fg:#d8b4fe;--rev-bg:rgba(88,28,135,.28);--rev-line:#a855f7;
   --skip-fg:#a3aec0;--skip-bg:rgba(71,85,105,.22);--skip-line:#64748b;
   --err-fg:#fca5a5;--err-bg:rgba(140,30,30,.22);--err-line:#ef4444;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -41,6 +42,7 @@ _TEMPLATE = r"""<!doctype html>
   --alert-fg:#92400e;--alert-bg:rgba(245,158,11,.16);
   --clean-fg:#10499b;--clean-bg:rgba(59,130,246,.13);
   --esc-fg:#78560c;--esc-bg:rgba(234,179,8,.18);
+  --rev-fg:#6b21a8;--rev-bg:rgba(168,85,247,.14);
   --skip-fg:#475569;--skip-bg:rgba(100,116,139,.14);
   --err-fg:#991b1b;--err-bg:rgba(239,68,68,.13);--shadow:0 1px 2px rgba(15,27,45,.06),0 8px 24px rgba(15,27,45,.08);
 }
@@ -99,6 +101,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .badge{display:inline-flex;align-items:center;padding:2.5px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 .badge.mini{font-size:10px;padding:1px 6px}
 .b-auto_fixed{color:var(--fixed-fg);background:var(--fixed-bg)}
+.b-needs_approval{color:var(--rev-fg);background:var(--rev-bg)}
 .b-alerted{color:var(--alert-fg);background:var(--alert-bg)}
 .b-clean{color:var(--clean-fg);background:var(--clean-bg)}
 .b-fix_failed_verification{color:var(--esc-fg);background:var(--esc-bg)}
@@ -169,6 +172,7 @@ pre.fix{margin:6px 0 2px;padding:10px 12px;background:var(--bg);border:1px solid
 <script>
 const HISTORY_URL = "__HISTORY_URL__";
 const STATUS = {
+  needs_approval:{label:"NEEDS APPROVAL",rail:"var(--rev-line)"},
   auto_fixed:{label:"AUTO-FIXED",rail:"var(--fixed-line)"},
   alerted:{label:"ALERT",rail:"var(--alert-line)"},
   fix_failed_verification:{label:"ESCALATED",rail:"var(--esc-line)"},
@@ -180,7 +184,7 @@ const STATUS = {
   error:{label:"ERROR",rail:"var(--err-line)"},
 };
 const info = s => STATUS[s] || {label:(s||"?").toUpperCase().replace(/_/g," "),rail:"var(--skip-line)"};
-const PRECEDENCE = ["error","auto_fixed","fix_failed_verification","alerted","low_confidence_skip","clean"];
+const PRECEDENCE = ["error","needs_approval","auto_fixed","fix_failed_verification","alerted","low_confidence_skip","clean"];
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const code = s => esc(s).replace(/`([^`]+)`/g,"<code>$1</code>");
 const badgeClass = s => STATUS[s]?("b-"+s):"b-skip";
@@ -202,7 +206,7 @@ function docLink(repo, commit, doc){
 function headline(results){ for(const s of PRECEDENCE){ if(results.some(r=>r.status===s))return s; } return results[0]?results[0].status:"clean"; }
 
 function computeStats(runs){
-  const c={total_runs:runs.length,auto_fixed:0,alerted:0,fix_failed_verification:0,clean:0,low_confidence_skip:0};
+  const c={total_runs:runs.length,needs_approval:0,auto_fixed:0,alerted:0,fix_failed_verification:0,clean:0,low_confidence_skip:0};
   for(const run of runs) for(const f of (run.results||[])) if(f.status in c) c[f.status]++;
   return c;
 }
@@ -216,8 +220,8 @@ function matches(run){
 
 function renderStats(runs){
   const s=computeStats(runs);
-  const cards=[["total_runs","Runs",null,"var(--accent)"],["auto_fixed","Auto-fixed","auto_fixed",info("auto_fixed").rail],
-    ["alerted","Alerts","alerted",info("alerted").rail],["fix_failed_verification","Escalated","fix_failed_verification",info("fix_failed_verification").rail],
+  const cards=[["total_runs","Runs",null,"var(--accent)"],["needs_approval","Needs approval","needs_approval",info("needs_approval").rail],
+    ["auto_fixed","Auto-fixed","auto_fixed",info("auto_fixed").rail],["alerted","Alerts","alerted",info("alerted").rail],
     ["clean","Clean","clean",info("clean").rail],["low_confidence_skip","Skipped","low_confidence_skip",info("low_confidence_skip").rail]];
   document.getElementById("stats").innerHTML = cards.map(([k,l,st,rail])=>{
     const active=st&&filterStatus===st;
@@ -289,7 +293,7 @@ function render(){
   }
   // status filter dropdown options
   const sf=document.getElementById("statusFilter");
-  if(sf.options.length<=1){ for(const s of ["auto_fixed","alerted","fix_failed_verification","clean","low_confidence_skip","error"]){ const o=document.createElement("option"); o.value=s; o.textContent=info(s).label; sf.appendChild(o);} }
+  if(sf.options.length<=1){ for(const s of ["needs_approval","auto_fixed","alerted","fix_failed_verification","clean","low_confidence_skip","error"]){ const o=document.createElement("option"); o.value=s; o.textContent=info(s).label; sf.appendChild(o);} }
   sf.value=filterStatus;
 }
 

@@ -42,6 +42,64 @@ def test_every_command_is_wired():
         assert callable(_parse([cmd]).func)
 
 
+def test_apply_and_dismiss_require_an_issue_number():
+    assert _parse(["apply", "--issue", "7"]).issue == 7
+    assert _parse(["dismiss", "--issue", "7"]).issue == 7
+    with pytest.raises(SystemExit):
+        _parse(["apply"])
+
+
+def test_apply_opens_a_pr_from_the_reviewed_fix(monkeypatch, isolated_settings):
+    """`docsentry apply --issue N` reads the fix embedded in the issue and opens
+    a PR with it — no LLM call, exactly the reviewed change."""
+    from docsentry.agents.review import encode_fix
+    from docsentry.cli import main
+
+    verdict = {"doc_id": "README.md::38", "doc_file": "README.md",
+               "doc_heading": "round_to", "doc_start_line": 38, "doc_end_line": 47,
+               "confidence": 0.9, "mismatch": "wrong",
+               "suggested_fix": "## round_to\n\nDefaults to 10."}
+    change = {"file": "calculator.py", "kind": "default_changed",
+              "name": "round_to", "detail": "changed 2 -> 10"}
+    body = "Review issue.\n" + encode_fix(verdict, change, "sha1")
+
+    calls = {}
+
+    def fake_pr(v, c, **k):
+        calls["pr"] = (v, c)
+        return "https://gh/pull/9"
+
+    def fake_comment(n, b):
+        calls["comment"] = (n, b)
+
+    def fake_close(n, **k):
+        calls["closed"] = n
+
+    # cmd_apply uses function-local imports, so patching the module attributes
+    # (resolved at call time) is enough.
+    monkeypatch.setattr("docsentry.core.github_ops.get_issue_body", lambda n: body)
+    monkeypatch.setattr("docsentry.core.git_ops.ensure_repo", lambda **k: ".")
+    monkeypatch.setattr("docsentry.agents.auto_fixer.open_fix_pr", fake_pr)
+    monkeypatch.setattr("docsentry.core.github_ops.comment_on_issue", fake_comment)
+    monkeypatch.setattr("docsentry.core.github_ops.close_issue", fake_close)
+
+    assert main(["apply", "--issue", "9"]) == 0
+    assert calls["pr"][0]["suggested_fix"] == "## round_to\n\nDefaults to 10."
+    assert "pull/9" in calls["comment"][1]
+    assert calls["closed"] == 9
+
+
+def test_apply_on_a_non_docsentry_issue_is_a_no_op(monkeypatch, isolated_settings):
+    from docsentry.cli import main
+    monkeypatch.setattr("docsentry.core.github_ops.get_issue_body",
+                        lambda n: "a normal issue, no fix payload")
+    commented = {}
+    monkeypatch.setattr("docsentry.core.github_ops.comment_on_issue",
+                        lambda n, b: commented.setdefault(n, b))
+    assert main(["apply", "--issue", "5"]) == 1
+    assert "nothing to apply" in commented[5]
+
+
 def test_run_accepts_history_flag():
     assert _parse(["run", "--history", "h.json"]).history == "h.json"
     assert _parse(["run"]).history is None

@@ -1,0 +1,60 @@
+# DocSentry — apply a reviewed fix on approval.
+#
+# Companion to docsentry-dashboard.yml (or docsentry.yml). When you comment
+#   /docsentry apply     on a "Docs Lie" review issue, this opens a PR with the
+#                        exact fix the issue proposed.
+#   /docsentry dismiss   closes the issue without changing anything.
+#
+# Put this at .github/workflows/docsentry-apply.yml alongside the analysis
+# workflow. It needs no extra secrets — it applies the fix already embedded in
+# the issue, so no LLM call is made here.
+
+name: DocSentry Apply
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  apply:
+    # Only for /docsentry comments on issues (not PRs), and only from people
+    # with write access — a public commenter must not be able to approve fixes.
+    if: >-
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, '/docsentry') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DocSentry
+        run: pip install "git+https://github.com/mannas632006/DocSentry-_-Keepin-It-Real.git@main"
+
+      - name: Apply or dismiss
+        # The comment body is untrusted input, so it is passed via env and never
+        # interpolated into the shell.
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE: ${{ github.event.issue.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ github.repository }}
+          LOCAL_REPO_PATH: ${{ github.workspace }}
+        run: |
+          if printf '%s' "$COMMENT_BODY" | grep -qiE '/docsentry[[:space:]]+apply'; then
+            docsentry apply --issue "$ISSUE"
+          elif printf '%s' "$COMMENT_BODY" | grep -qiE '/docsentry[[:space:]]+dismiss'; then
+            docsentry dismiss --issue "$ISSUE"
+          else
+            echo "No actionable /docsentry command in this comment; ignoring."
+          fi

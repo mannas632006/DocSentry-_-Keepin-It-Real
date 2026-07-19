@@ -1,6 +1,7 @@
 /* Presentation helpers shared across components. */
 
 export const STATUS = {
+  needs_approval:          { label: "NEEDS APPROVAL", rail: "var(--st-review-line)", tone: "review" },
   auto_fixed:              { label: "AUTO-FIXED", rail: "var(--st-fixed-line)", tone: "fixed" },
   alerted:                 { label: "ALERT",      rail: "var(--st-alert-line)", tone: "alert" },
   clean:                   { label: "CLEAN",      rail: "var(--st-clean-line)", tone: "clean" },
@@ -18,6 +19,7 @@ export const statusInfo = (s) =>
 
 /** Filterable statuses, in the order a reader cares about them. */
 export const FILTERABLE = [
+  "needs_approval",
   "auto_fixed",
   "alerted",
   "fix_failed_verification",
