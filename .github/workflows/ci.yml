@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "v2-**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (py${{ matrix.python }} · ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      # The suite builds real git repos in temp dirs, so git needs an identity
+      # on a bare runner.
+      - name: Configure git
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # No .env, no API key, no network, no Ollama. If any of that were still
+      # required, this step would fail — which is the point.
+      - name: Test
+        run: pytest -q
+
+      - name: Import without configuration
+        run: |
+          python -c "import docsentry.main, docsentry.pipeline, docsentry.cli; print('imports clean with no .env')"
+          docsentry --version
+          docsentry config
+
+  dashboard:
+    name: dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Build
+        working-directory: dashboard
+        run: npm run build
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: docsentry:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Prove the image actually serves: the API must boot with no config and
+      # report *why* it is not ready, rather than crash-looping.
+      - name: Smoke test the image
+        run: |
+          docker run -d --name docsentry -p 8000:8000 docsentry:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          echo "--- /health ---"
+          curl -s http://localhost:8000/health | tee /tmp/health.json
+          echo
+          # Unconfigured, so ready must be false and problems must be listed.
+          python -c "
+          import json, sys
+          h = json.load(open('/tmp/health.json'))
+          assert h['ready'] is False, 'expected not-ready without config'
+          assert h['problems'], 'expected problems to be listed'
+          print('health reports:', h['problems'])
+          "
+          echo "--- / (dashboard served from the image) ---"
+          curl -sf http://localhost:8000/ | grep -q "<title>DocSentry</title>" \
+            && echo "dashboard is served" || (echo "dashboard NOT served"; exit 1)
+          docker logs docsentry
+          docker rm -f docsentry

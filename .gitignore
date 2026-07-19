@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime state: SQLite db + cloned copies of the watched repo.
+.docsentry/
+
+dashboard/node_modules/
+dashboard/dist/

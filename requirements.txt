@@ -1,0 +1,9 @@
+# Dependencies are declared in pyproject.toml — this file just installs the
+# project, so the two can never drift apart. (v1 was a raw `pip freeze` with
+# 117 pins, including torch, transformers and kubernetes, most of which were
+# never imported.)
+#
+#   pip install -r requirements.txt      # runtime
+#   pip install -e ".[dev]"              # + pytest
+#   pip install -e ".[chroma]"           # + dense retrieval (heavy, optional)
+.
