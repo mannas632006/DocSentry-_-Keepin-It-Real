@@ -198,6 +198,24 @@ def test_init_db_is_idempotent():
     assert db.stats()["total_runs"] == 0
 
 
+def test_db_self_initialises_without_explicit_init(tmp_path, monkeypatch):
+    """Regression: the CLI and pipeline never call init_db(), so the first DB
+    access must create the schema on demand. Without this, an armed (non-dry)
+    run hit the alert-dedup path and died with 'no such table: alerts' — while
+    every dry run passed, because dry-run returns before touching the DB."""
+    from docsentry.config import settings
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "never-inited")
+    monkeypatch.setattr(db, "_schema_ready_for", None)  # mimic a fresh process
+
+    # No init_db() here — exactly what the alerter does.
+    assert db.find_alert("k") is None
+    db.record_alert("k", "https://x/1")
+    assert db.find_alert("k") == "https://x/1"
+    # And a full run persists too, still without an explicit init.
+    rid = db.save_run("abc", [_finding()])
+    assert db.get_run(rid)["commit"] == "abc"
+
+
 def test_db_lives_under_data_dir(isolated_settings):
     db.save_run("aaa", [])
     assert isolated_settings.db_path.is_file()
