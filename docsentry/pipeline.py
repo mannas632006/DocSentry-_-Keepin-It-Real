@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from docsentry.agents.alerter import open_docs_lie_issue
+from docsentry.agents.alerter import open_docs_lie_issue, open_review_issue
 from docsentry.agents.auto_fixer import FixError, open_fix_pr
 from docsentry.agents.diff_analyzer import analyze_commit
 from docsentry.agents.divergence import check_divergence
@@ -30,6 +30,7 @@ class RunOptions:
     autofix_threshold: float | None = None
     alert_threshold: float | None = None
     max_docs_per_change: int | None = None
+    require_approval: bool | None = None
 
     def resolved(self) -> dict[str, Any]:
         return {
@@ -45,6 +46,10 @@ class RunOptions:
             "max_docs_per_change": (
                 settings.max_docs_per_change if self.max_docs_per_change is None
                 else self.max_docs_per_change
+            ),
+            "require_approval": (
+                settings.require_approval if self.require_approval is None
+                else self.require_approval
             ),
         }
 
@@ -80,9 +85,28 @@ def _doc_meta(verdict: dict) -> dict[str, Any]:
 
 
 def _act(change: dict, verdict: dict, opts: dict, commit_hash: str) -> dict[str, Any]:
-    """Route one diverged verdict to a PR, an issue, or nothing."""
+    """Route one diverged verdict to a review issue, a PR, an alert, or nothing."""
     doc = _doc_meta(verdict)
     confidence = verdict["confidence"]
+
+    # Review-first (the default): never apply a fix unprompted. Anything worth
+    # acting on becomes a review issue carrying the exact fix, which a human
+    # approves with `/docsentry apply`.
+    if opts["require_approval"]:
+        if confidence < opts["alert_threshold"]:
+            return _finding("low_confidence_skip", change, doc, verdict)
+        if not verdict["suggested_fix"]:
+            url = open_docs_lie_issue(verdict, change, commit_hash=commit_hash,
+                                      dry_run=opts["dry_run"])
+            return _finding("alerted", change, doc, verdict, url)
+        # Include the self-check result as a signal for the reviewer, but do not
+        # gate on it — the human is the gate here.
+        passed, reason = verify_fix(change, verdict["suggested_fix"], verdict)
+        verified = "DocSentry re-checked this fix and it resolves the drift." if passed \
+            else f"DocSentry could not fully confirm this fix ({reason}); review carefully."
+        url = open_review_issue(verdict, change, commit_hash=commit_hash,
+                                dry_run=opts["dry_run"], verified=verified)
+        return _finding("needs_approval", change, doc, verdict, url)
 
     if confidence >= opts["autofix_threshold"] and verdict["suggested_fix"]:
         passed, reason = verify_fix(change, verdict["suggested_fix"], verdict)

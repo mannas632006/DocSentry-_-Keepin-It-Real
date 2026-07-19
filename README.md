@@ -29,9 +29,13 @@ push → diff_analyzer (tree-sitter AST) → doc_linker (BM25 retrieval)
   default deep inside a signature is caught precisely.
 - **Reason:** the doc sections that actually name the changed function are retrieved, then an LLM
   judges whether the doc now lies, returning strict JSON.
-- **Act:** confidence ≥0.85 → auto-fix PR; 0.50–0.84 → "Docs Lie" issue; below → skip.
-- **Verify:** the agent re-checks its own fix before opening the PR, and **fails closed** — if the
-  model can't be reached, the fix is treated as unverified rather than clean.
+- **Act:** by default DocSentry is **review-first** — it opens an issue describing the problem and
+  the exact fix it *can* apply, and waits. You approve with a comment (`/docsentry apply`) and it
+  opens the PR; `/docsentry dismiss` closes it. Set `require_approval=false` for the autonomous mode
+  (confidence ≥0.85 → PR, 0.50–0.84 → issue, below → skip).
+- **Verify:** the agent re-checks its own fix and **fails closed** — if the model can't be reached,
+  the fix is treated as unverified rather than clean. In review mode the self-check result is shown
+  in the issue so you can weigh it; in autonomous mode it gates the PR.
 
 See **[DOCUMENTATION.md](DOCUMENTATION.md)** for the technical deep-dive.
 
@@ -134,6 +138,7 @@ list. The ones that matter:
 | `target_repo` | — | `owner/name` of the repo to watch |
 | `local_repo_path` | *(blank)* | Blank = clone `target_repo` at runtime. Leave blank in production |
 | `admin_token` | *(blank)* | Blank = write endpoints disabled |
+| `require_approval` | `true` | Review-first: report + wait for `/docsentry apply`. `false` = autonomous PRs |
 | `dry_run` | `false` | `true` = analyse and report, open nothing |
 | `autofix_threshold` | `0.85` | Confidence ≥ this → verified fix PR |
 | `alert_threshold` | `0.50` | Confidence ≥ this → issue |

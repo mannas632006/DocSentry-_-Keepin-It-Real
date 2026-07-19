@@ -23,8 +23,26 @@ secret you add is a free Groq key.
 
 That's it. The workflow ships in `DRY_RUN` mode, so the first pushes report
 findings in the **Actions** tab log but open nothing. When you trust it, delete
-the `DRY_RUN: "true"` line from the workflow and push — now it opens a
-"Docs Lie" issue, or (at ≥85% confidence, after self-verifying) a fix PR.
+the `DRY_RUN: "true"` line from the workflow and push.
+
+### Review-first: it waits for your approval
+
+By default DocSentry does **not** change anything on its own. When it finds
+drift it opens a **review issue** that describes the problem, why the docs are
+now wrong, its confidence, and the exact fix it can apply. You decide:
+
+- Comment **`/docsentry apply`** → it opens a PR with that exact fix, for you to
+  merge.
+- Comment **`/docsentry dismiss`** → it closes the issue; nothing changes.
+
+For the `/docsentry apply` command to work, add the second workflow
+[`docsentry-apply.yml`](docsentry-apply.yml) at
+`.github/workflows/docsentry-apply.yml`. It reacts to your comment and opens the
+PR — only for comments from people with write access, and it needs no extra
+secret (it applies the fix already embedded in the issue, so no LLM call).
+
+Prefer full autonomy (high-confidence fixes open a PR directly, no approval)?
+Set `REQUIRE_APPROVAL: "false"` in the analysis workflow's `env`.
 
 ## Seeing it catch something
 

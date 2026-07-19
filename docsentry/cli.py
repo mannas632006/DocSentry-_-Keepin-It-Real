@@ -142,6 +142,59 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_apply(args: argparse.Namespace) -> int:
+    """Apply the fix a review issue proposed, and open a PR. Called on approval."""
+    from docsentry.agents.auto_fixer import FixError, open_fix_pr
+    from docsentry.agents.review import decode_fix
+    from docsentry.core.git_ops import GitOpsError, ensure_repo, redact
+    from docsentry.core.github_ops import (
+        GitHubError,
+        close_issue,
+        comment_on_issue,
+        get_issue_body,
+    )
+
+    n = args.issue
+    payload = decode_fix(get_issue_body(n))
+    if not payload:
+        msg = ("This does not look like a DocSentry review issue with an "
+               "applicable fix, so there is nothing to apply.")
+        print(msg, file=sys.stderr)
+        try:
+            comment_on_issue(n, f"⚠️ {msg}")
+        except GitHubError:
+            pass
+        return 1
+
+    verdict, change = payload["verdict"], payload["change"]
+    try:
+        ensure_repo(fetch=not args.no_fetch)
+        url = open_fix_pr(verdict, change, dry_run=False)
+    except (FixError, GitHubError, GitOpsError) as e:
+        reason = redact(str(e))
+        print(f"could not apply the fix: {reason}", file=sys.stderr)
+        comment_on_issue(n, f"⚠️ DocSentry could not apply the fix: {reason}\n\n"
+                            "The docs may have changed since this was proposed. "
+                            "Re-push to re-analyse.")
+        return 1
+
+    comment_on_issue(n, f"✅ Applied. Opened {url} with the reviewed fix — "
+                        "merge it to resolve the drift.")
+    close_issue(n)
+    print(f"Applied the fix from issue #{n}: {url}")
+    return 0
+
+
+def cmd_dismiss(args: argparse.Namespace) -> int:
+    """Close a review issue without applying anything."""
+    from docsentry.core.github_ops import close_issue
+    close_issue(args.issue,
+                comment="🙅 Dismissed — DocSentry will not change these docs. "
+                        "Re-push the code to reconsider.")
+    print(f"Dismissed review issue #{args.issue}")
+    return 0
+
+
 def cmd_config(args: argparse.Namespace) -> int:
     print(json.dumps(settings.public_dict(), indent=2))
     return 0
@@ -206,6 +259,15 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--history", metavar="FILE",
                    help="append this run to a JSON history file for the dashboard")
     r.set_defaults(func=cmd_run)
+
+    ap = sub.add_parser("apply", help="apply the fix a review issue proposed (opens a PR)")
+    ap.add_argument("--issue", type=int, required=True, metavar="N")
+    ap.add_argument("--no-fetch", action="store_true", help="skip git fetch")
+    ap.set_defaults(func=cmd_apply)
+
+    dm = sub.add_parser("dismiss", help="close a review issue without applying")
+    dm.add_argument("--issue", type=int, required=True, metavar="N")
+    dm.set_defaults(func=cmd_dismiss)
 
     c = sub.add_parser("config", help="print the effective configuration")
     c.set_defaults(func=cmd_config)

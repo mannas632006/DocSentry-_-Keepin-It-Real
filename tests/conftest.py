@@ -97,6 +97,9 @@ def isolated_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "autofix_threshold", 0.85)
     monkeypatch.setattr(settings, "alert_threshold", 0.50)
     monkeypatch.setattr(settings, "admin_token", "")
+    # Default the tests to autonomous mode; the approval-flow tests opt back in
+    # explicitly. (The product default is require_approval=True.)
+    monkeypatch.setattr(settings, "require_approval", False)
     yield settings
 
 

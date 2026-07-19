@@ -27,6 +27,7 @@
   --st-alert-fg: #fbbf72;   --st-alert-bg: rgba(146, 74, 18, 0.20);   --st-alert-line: #f59e0b;
   --st-clean-fg: #7cc0ff;   --st-clean-bg: rgba(23, 74, 138, 0.20);   --st-clean-line: #3b82f6;
   --st-esc-fg:   #fde68a;   --st-esc-bg:   rgba(120, 90, 12, 0.22);   --st-esc-line:  #eab308;
+  --st-review-fg:#d8b4fe;   --st-review-bg:rgba(88, 28, 135, 0.28);   --st-review-line:#a855f7;
   --st-skip-fg:  #a3aec0;   --st-skip-bg:  rgba(71, 85, 105, 0.22);   --st-skip-line: #64748b;
   --st-err-fg:   #fca5a5;   --st-err-bg:   rgba(140, 30, 30, 0.22);   --st-err-line:  #ef4444;
 }
@@ -50,6 +51,7 @@
   --st-alert-fg: #92400e;   --st-alert-bg: rgba(245, 158, 11, 0.16);
   --st-clean-fg: #10499b;   --st-clean-bg: rgba(59, 130, 246, 0.13);
   --st-esc-fg:   #78560c;   --st-esc-bg:   rgba(234, 179, 8, 0.18);
+  --st-review-fg:#6b21a8;   --st-review-bg:rgba(168, 85, 247, 0.14);
   --st-skip-fg:  #475569;   --st-skip-bg:  rgba(100, 116, 139, 0.14);
   --st-err-fg:   #991b1b;   --st-err-bg:   rgba(239, 68, 68, 0.13);
 }
@@ -73,6 +75,7 @@
     --st-alert-fg: #92400e;   --st-alert-bg: rgba(245, 158, 11, 0.16);
     --st-clean-fg: #10499b;   --st-clean-bg: rgba(59, 130, 246, 0.13);
     --st-esc-fg:   #78560c;   --st-esc-bg:   rgba(234, 179, 8, 0.18);
+    --st-review-fg:#6b21a8;   --st-review-bg:rgba(168, 85, 247, 0.14);
     --st-skip-fg:  #475569;   --st-skip-bg:  rgba(100, 116, 139, 0.14);
     --st-err-fg:   #991b1b;   --st-err-bg:   rgba(239, 68, 68, 0.13);
   }
@@ -360,6 +363,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   flex: none;
 }
 .badge-auto_fixed              { color: var(--st-fixed-fg); background: var(--st-fixed-bg); }
+.badge-needs_approval          { color: var(--st-review-fg); background: var(--st-review-bg); }
 .badge-alerted                 { color: var(--st-alert-fg); background: var(--st-alert-bg); }
 .badge-clean                   { color: var(--st-clean-fg); background: var(--st-clean-bg); }
 .badge-fix_failed_verification { color: var(--st-esc-fg);   background: var(--st-esc-bg); }

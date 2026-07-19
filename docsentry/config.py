@@ -96,6 +96,13 @@ class Settings(BaseSettings):
     # needs the [chroma] extra and is intended for local use.
     retrieval_backend: Literal["bm25", "chroma"] = "bm25"
 
+    # Review-first, the safer default: never open a fix PR unprompted. Drift is
+    # reported as an issue describing the problem and the fix DocSentry *can*
+    # apply; a human then approves it (comment `/docsentry apply`) to open the
+    # PR. Set false for the fully autonomous mode where high-confidence fixes
+    # open a PR directly.
+    require_approval: bool = True
+
     # Global kill switch for side effects. When true the agent does all the
     # analysis and reports what it *would* do, but opens no issues or PRs.
     dry_run: bool = False
@@ -188,6 +195,7 @@ class Settings(BaseSettings):
             "alert_threshold": self.alert_threshold,
             "max_docs_per_change": self.max_docs_per_change,
             "retrieval_backend": self.retrieval_backend,
+            "require_approval": self.require_approval,
             "dry_run": self.dry_run,
             "admin_enabled": bool(self.admin_token),
         }

@@ -55,3 +55,28 @@ def ensure_label(repo: Repository) -> str | None:
         # Most likely a token without Issues:write. Not worth failing over.
         log.warning("could not create %r label: %s", LABEL, e.data or e)
         return None
+
+
+def get_issue_body(number: int) -> str:
+    """The body of one issue, for reading back an embedded fix payload."""
+    try:
+        return get_repo().get_issue(number).body or ""
+    except GithubException as e:
+        raise GitHubError(f"cannot read issue #{number}: {e.data or e}") from e
+
+
+def comment_on_issue(number: int, body: str) -> None:
+    try:
+        get_repo().get_issue(number).create_comment(body)
+    except GithubException as e:
+        raise GitHubError(f"cannot comment on issue #{number}: {e.data or e}") from e
+
+
+def close_issue(number: int, comment: str = "") -> None:
+    try:
+        issue = get_repo().get_issue(number)
+        if comment:
+            issue.create_comment(comment)
+        issue.edit(state="closed")
+    except GithubException as e:
+        raise GitHubError(f"cannot close issue #{number}: {e.data or e}") from e

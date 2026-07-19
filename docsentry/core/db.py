@@ -335,6 +335,7 @@ def stats() -> dict[str, Any]:
         return {
             "total_runs": total_runs,
             "total_findings": sum(by_status.values()),
+            "needs_approval": by_status.get("needs_approval", 0),
             "auto_fixed": by_status.get("auto_fixed", 0),
             "alerted": by_status.get("alerted", 0),
             "clean": by_status.get("clean", 0),
