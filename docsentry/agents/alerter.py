@@ -15,7 +15,24 @@ log = logging.getLogger(__name__)
 DRY_RUN_URL = "dry-run://issue-not-opened"
 
 
-def _body(verdict: dict[str, Any], change: dict[str, Any]) -> str:
+def _confidence_note(confidence: float, reason: str) -> str:
+    """Explain, accurately, why this became an issue rather than a fix PR.
+
+    An issue is opened on two different paths — a below-threshold alert, and a
+    high-confidence fix that could not be shipped. The body must not claim
+    "below the threshold" for the second, or DocSentry is lying in exactly the
+    way it exists to catch.
+    """
+    if reason:
+        return reason
+    if confidence >= settings.autofix_threshold:
+        return ("at or above the auto-fix threshold, but the fix could not be "
+                "opened as a PR — a human should apply it")
+    return (f"below the {settings.autofix_threshold:.0%} auto-fix threshold, so "
+            "this is a report rather than a pull request")
+
+
+def _body(verdict: dict[str, Any], change: dict[str, Any], reason: str = "") -> str:
     fix = verdict.get("suggested_fix") or ""
     fix_block = f"""
 **Suggested fix** — replaces `{verdict['doc_file']}` lines \
@@ -35,15 +52,15 @@ def _body(verdict: dict[str, Any], change: dict[str, Any]) -> str:
 **Suspected lie:** {verdict['mismatch']}
 
 **Confidence:** {verdict['confidence']:.0%} \
-(below the {settings.autofix_threshold:.0%} auto-fix threshold, so this is a \
-report rather than a pull request)
+({_confidence_note(verdict['confidence'], reason)})
 {fix_block}
 ---
 _Opened automatically by [DocSentry](https://github.com/mannas632006/DocSentry-_-Keepin-It-Real)._"""
 
 
 def open_docs_lie_issue(verdict: dict[str, Any], change: dict[str, Any], *,
-                        commit_hash: str = "", dry_run: bool | None = None) -> str:
+                        commit_hash: str = "", dry_run: bool | None = None,
+                        reason: str = "") -> str:
     """File an issue, or return the existing one for identical drift.
 
     Returns the issue URL. v1 filed a fresh issue every run, so re-pushing the
@@ -67,7 +84,7 @@ def open_docs_lie_issue(verdict: dict[str, Any], change: dict[str, Any], *,
     try:
         issue = repo.create_issue(
             title=title,
-            body=_body(verdict, change),
+            body=_body(verdict, change, reason),
             labels=[label] if label else [],
         )
     except GithubException as e:
