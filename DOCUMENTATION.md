@@ -246,10 +246,18 @@ the same origin.
 
 ---
 
-## 4. Confidence-based routing
+## 4. Routing: review-first by default, thresholded autonomy on request
 
-The single most important design idea: **thresholded autonomy**. The agent doesn't act with the
-same authority on every verdict — it scales its autonomy to its certainty.
+**The default is review-first (`require_approval=true`).** DocSentry never changes a repo on its
+own. Any drift at or above `ALERT_THRESHOLD` opens a *review issue* that states the problem, the
+self-check result, and the exact fix it can apply — and then waits. A human approves by commenting
+`/docsentry apply` (which opens a PR with that exact fix, applied from a payload embedded in the
+issue — no second model call) or `/docsentry dismiss`. Findings below the alert threshold are
+skipped. This routing lives in `pipeline._act`, and the two-phase apply is `agents/review.py` plus
+`cli.py` (`apply` / `dismiss`), driven by the `docsentry-apply.yml` workflow.
+
+**Autonomous mode (`require_approval=false`)** restores the original thresholded-autonomy design:
+the agent scales its authority to its certainty.
 
 | Confidence | Action | Rationale |
 |---|---|---|
@@ -257,7 +265,8 @@ same authority on every verdict — it scales its autonomy to its certainty.
 | **0.50 – 0.84** (`ALERT_THRESHOLD`) | Alert → open issue | Probably wrong, but a human should decide |
 | **< 0.50** | Log & skip | Too uncertain to be worth anyone's attention |
 
-Both thresholds are tunable in `.env`, and overridable per-run via the CLI or `POST /api/analyze`.
+Every threshold and the mode itself are tunable in `.env`, and overridable per-run via the CLI or
+`POST /api/analyze`.
 
 **Model choice decides which tier you actually reach.** On the canonical flipped-default case:
 `orca-mini` (2B) detects the drift but caps around ~0.5 confidence, so it never reaches auto-fix;
