@@ -28,8 +28,17 @@ def _db_file() -> Path:
     return path
 
 
+# Which database file the schema has been created in this process. The FastAPI
+# server calls init_db() on startup, but the CLI and the pipeline do not — so
+# any DB access self-heals via _ensure_schema() rather than failing with
+# "no such table". Keyed on the path so a config change (or a test switching
+# data_dir) re-initialises the new file.
+_schema_ready_for: str | None = None
+
+
 @contextmanager
-def _conn() -> Iterator[sqlite3.Connection]:
+def _connect() -> Iterator[sqlite3.Connection]:
+    """Raw connection, no schema guard. Used by init_db itself."""
     c = sqlite3.connect(_db_file(), timeout=10)
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA foreign_keys = ON")
@@ -40,8 +49,30 @@ def _conn() -> Iterator[sqlite3.Connection]:
         c.close()
 
 
+@contextmanager
+def _conn() -> Iterator[sqlite3.Connection]:
+    _ensure_schema()
+    with _connect() as c:
+        yield c
+
+
+def _ensure_schema() -> None:
+    global _schema_ready_for
+    path = str(_db_file())
+    if _schema_ready_for != path:
+        init_db()
+        _schema_ready_for = path
+
+
 def init_db() -> None:
-    with _conn() as c:
+    global _schema_ready_for
+    _create_schema()
+    _schema_ready_for = str(_db_file())
+
+
+def _create_schema() -> None:
+    # Uses the raw connection so it cannot recurse through _ensure_schema.
+    with _connect() as c:
         version = c.execute("PRAGMA user_version").fetchone()[0]
         if version and version < SCHEMA_VERSION:
             # v1 rows have an incompatible shape and no findings table. The
